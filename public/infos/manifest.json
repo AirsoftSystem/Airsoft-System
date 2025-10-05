@@ -1,12 +1,12 @@
 {
-    "name": "ciblerie_local",
-    "short_name": "ciblerie_local",
-    "start_url": ".",
+    "name": "Airsoft System - Profil Joueur",
+    "short_name": "AirsoftSystem",
+    "description": "Profil joueur Airsoft, stats et avatar 3D",
+    "start_url": "/infos/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0A101A",
+    "theme_color": "#18FFFF",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {
