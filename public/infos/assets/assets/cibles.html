@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rosace interactive — ESP32 WebSocket (mapping 0→1, END_MANCHE)</title>
+<style>
+  :root{
+    --d: 14px;             /* diamètre du petit point rouge */
+    --w: 10px;             /* largeur de chaque anneau */
+    --target-size: calc(var(--d) + 8 * var(--w));
+    --down-angle: 85deg;   /* angle quand couchée */
+    --rise-duration: 1.8s; /* montée lente */
+    --fall-duration: 1.2s; /* chute/animation */
+  }
+
+  html,body{height:100%;margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif}
+  .container{display:flex;gap:12px;height:100vh;padding:12px;box-sizing:border-box}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center}
+  .board{position:relative;width:900px;height:900px;perspective:1600px}
+
+  .wrap{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    user-select:none;
+    cursor:pointer;
+  }
+
+  .target{
+    width: var(--target-size);
+    height: var(--target-size);
+    border-radius:50%;
+    transform-origin:center center;
+    transform: rotateX(var(--down-angle));
+    backface-visibility: visible;
+    will-change: transform;
+    box-sizing:border-box;
+    outline: 0.4px solid rgba(255,255,255,0.03);
+  }
+
+  /* Style des cibles périphériques (anneaux) */
+  .target.rings{
+    background:
+      radial-gradient(circle at center,
+        #ff2a2a 0 calc(var(--d)/2),
+        #0028ff calc(var(--d)/2) calc(calc(var(--d)/2) + var(--w)),
+        #ff2a2a calc(calc(var(--d)/2) + var(--w)) calc(calc(var(--d)/2) + calc(2 * var(--w))),
+        #0028ff calc(calc(var(--d)/2) + calc(2 * var(--w))) calc(calc(var(--d)/2) + calc(3 * var(--w))),
+        #ff2a2a calc(calc(var(--d)/2) + calc(3 * var(--w))) calc(calc(var(--d)/2) + calc(4 * var(--w)))
+      );
+  }
+
+  /* Style de la cible centrale (Cible 1) */
+  .target.center{ background:#000; position:relative; }
+  
+  /* Points cliquables de la cible 1 - TAILLES ORIGINALES RESTAURÉES (var(--d)) */
+  .target.center .dot-red, .target.center .dot-blue { 
+    position:absolute;
+    width:var(--d); /* Utilise la taille originale */
+    height:var(--d); /* Utilise la taille originale */
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    cursor:pointer;
+    box-shadow: 0 0 4px rgba(255,255,255,0.4); 
+    z-index: 10; 
+  }
+
+  .target.center .dot-red{ 
+    background:#ff2a2a; 
+    left:50%;
+    top:50%;
+  }
+  .target.center .dot-blue{ 
+    background:#0028ff; 
+  }
+
+  /* Positionnement des points bleus */
+  .b1{ left:50%; top:20%; }
+  .b2{ left:78%; top:62%; }
+  .b3{ left:22%; top:62%; }
+
+  .label{font-size:13px;color:#fff;text-shadow:0 0 2px rgba(0,0,0,0.8);text-align:center}
+
+  @keyframes swingFromTop {
+    0%{transform:rotateX(0deg);} 15%{transform:rotateX(-130deg);} 35%{transform:rotateX(95deg);}
+    60%{transform:rotateX(-65deg);} 80%{transform:rotateX(35deg);} 100%{transform:rotateX(var(--down-angle));}
+  }
+  @keyframes swingFromBottom {
+    0%{transform:rotateX(0deg);} 15%{transform:rotateX(130deg);} 35%{transform:rotateX(-95deg);}
+    60%{transform:rotateX(65deg);} 80%{transform:rotateX(-35deg);} 100%{transform:rotateX(var(--down-angle));}
+  }
+
+  /* side panel */
+  .panel{width:360px;display:flex;flex-direction:column;gap:10px}
+  .card{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px}
+  input, button, textarea, select { width:100%; padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.02); color:#fff; box-sizing:border-box }
+  #log{height:240px;overflow:auto;background:rgba(0,0,0,0.25);padding:8px;border-radius:6px;font-family:monospace;font-size:13px}
+  .row{display:flex;gap:8px}
+  .small{width:48%}
+  .status{font-size:13px;color:#ddd;margin-top:6px}
+  
+  /* Règles pour les grands écrans (PC) */
+  @media (min-width:1201px){ 
+    .container{flex-direction:row} 
+    .panel{width:360px}
+  }
+  
+  /* Règles pour les écrans intermédiaires/tablettes (redirection du panneau en bas) */
+  @media (max-width:1200px){ 
+    .container{flex-direction:column} 
+    .panel{width:100%} 
+    .board{width:520px;height:520px} 
+  }
+  
+  /* 🛑 CORRECTION FLUTTER WEBVIEW : Masquer le panneau sur les petits écrans (mobiles) */
+  @media (max-width: 600px) { 
+    .panel {
+      display: none !important; /* Cache complètement la section des logs et des tests manuels */
+    }
+    .stage {
+      flex: 1; /* S'assure que la rosace prend l'espace du panneau */
+    }
+  }
+
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="stage">
+      <div class="board" id="board" aria-label="Rosace de cibles">
+        <div class="wrap" id="wrap-1" style="left:50%;top:50%;" data-state="down" data-anim="0" data-index="1">
+          <div class="target center" data-index="1">
+            <div class="dot-red" data-score="250"></div>
+            <div class="dot-blue b1" data-score="200"></div>
+            <div class="dot-blue b2" data-score="150"></div>
+            <div class="dot-blue b3" data-score="100"></div>
+          </div>
+          <div class="label">1</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <label>WebSocket ESP32 (URL)</label>
+        <input id="wsUrl" type="text" value="ws://192.168.1.16:81/" />
+        <div class="row" style="margin-top:8px">
+          <button id="connectWs">Connect</button>
+          <button id="disconnectWs">Disconnect</button>
+        </div>
+        <div class="status" id="wsStatus">WS: disconnected · lastRaised: none</div>
+      </div>
+
+      <div class="card">
+        <label>Logs</label>
+        <div id="log"></div>
+      </div>
+
+      <div class="card">
+        <label>Test manuel</label>
+        <input id="manualJson" placeholder='Ex: {"type":"servo_up","servoIndex":0}' />
+        <div class="row" style="margin-top:8px">
+          <button id="sendManual">Envoyer</button>
+          <button id="sendEnd">Send END_MANCHE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  const wsUrlInput = document.getElementById('wsUrl');
+  const connectBtn = document.getElementById('connectWs');
+  const disconnectBtn = document.getElementById('disconnectWs');
+  const sendManualBtn = document.getElementById('sendManual');
+  const sendEndBtn = document.getElementById('sendEnd');
+  const logEl = document.getElementById('log');
+  const wsStatusEl = document.getElementById('wsStatus');
+
+  function log(msg){
+    const now = new Date().toLocaleTimeString();
+    const row = document.createElement('div');
+    row.textContent = `[${now}] ${msg}`;
+    logEl.prepend(row);
+    while(logEl.childElementCount > 400) logEl.removeChild(logEl.lastChild);
+  }
+
+  function setWsStatusText(s){
+    wsStatusEl.textContent = `WS: ${s} · lastRaised: ${lastRaisedIndex === null ? 'none' : lastRaisedIndex}`;
+  }
+
+  const servoMap = {};
+  let lastRaisedIndex = null;
+
+  function computeTargetSize(){
+    const style = getComputedStyle(document.documentElement);
+    const d = parseFloat(style.getPropertyValue('--d')) || 14;
+    const w = parseFloat(style.getPropertyValue('--w')) || 10;
+    return d + 8 * w;
+  }
+
+  function setAllTargetSizes(){
+    const size = computeTargetSize() + 'px';
+    document.querySelectorAll('.target').forEach(t => { t.style.width = size; t.style.height = size; });
+  }
+
+  function buildPeripheralTargets(){
+    // Supprimer les cibles périphériques existantes pour les reconstruire
+    Array.from(document.querySelectorAll('#board .wrap')).forEach(w => { if(w.id!=='wrap-1') w.remove(); });
+
+    const board = document.getElementById('board');
+    const BW = board.clientWidth, BH = board.clientHeight;
+    const cx = BW/2, cy = BH/2;
+    const innerR = Math.min(BW,BH)*0.18;
+    const outerR = Math.min(BW,BH)*0.36;
+
+    const innerAngles = [-90,0,90,180];
+    const outerAngles = [-67.5,-22.5,22.5,67.5,112.5,157.5,202.5,247.5];
+    const pts = [];
+    innerAngles.forEach(a=>pts.push({deg:a,r:innerR}));
+    outerAngles.forEach(a=>pts.push({deg:a,r:outerR}));
+
+    const order = [5,2,4,3,12,8,6,10,11,7,9,13];
+    const targetSize = computeTargetSize();
+
+    pts.forEach((pt,i)=>{
+      const rad = pt.deg*Math.PI/180;
+      const x = cx + pt.r*Math.cos(rad);
+      const y = cy + pt.r*Math.sin(rad);
+      const num = order[i];
+
+      const wrap = document.createElement('div');
+      wrap.className='wrap';
+      wrap.id='wrap-'+num;
+      wrap.style.left=x+'px';
+      wrap.style.top=y+'px';
+      wrap.dataset.state='down';
+      wrap.dataset.anim='0';
+      wrap.dataset.index=String(num);
+
+      const target=document.createElement('div');
+      target.className='target rings';
+      target.dataset.index=String(num);
+      target.style.transform=`rotateX(var(--down-angle))`;
+      target.style.width=targetSize+'px';
+      target.style.height=targetSize+'px';
+
+      const label=document.createElement('div');
+      label.className='label';
+      label.textContent=num;
+
+      wrap.appendChild(target);
+      wrap.appendChild(label);
+      board.appendChild(wrap);
+
+      registerInteractive(wrap,target,num);
+    });
+
+    const centerTarget = document.querySelector('#wrap-1 .target');
+    if(centerTarget){
+      centerTarget.style.width = targetSize+'px';
+      centerTarget.style.height = targetSize+'px';
+    }
+  }
+
+  function registerInteractive(wrap,target,index){
+    // Rayons (en pixels)
+    const peripheralRings = [0, 5, 10, 15, 25, 50]; 
+
+    const isCenter = (index===1);
+
+    function rise(){
+      if(wrap.dataset.anim==='1') return;
+      if(wrap.dataset.state==='up'){ lastRaisedIndex=index; updateStatus(); return; }
+      wrap.dataset.anim='1';
+      target.style.animation='';
+      const dur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rise-duration'))||1.8;
+      target.style.transition=`transform ${dur}s cubic-bezier(.25,.9,.25,1)`;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>target.style.transform='rotateX(0deg)'));
+      const onEnd=function(ev){ if(ev.propertyName!=='transform') return;
+        target.removeEventListener('transitionend',onEnd);
+        target.style.transition='';
+        wrap.dataset.state='up';
+        wrap.dataset.anim='0';
+        lastRaisedIndex=index; updateStatus();
+        log(`servo ${index} levée`);
+      };
+      target.addEventListener('transitionend',onEnd);
+    }
+
+    function fallSimple(){
+      if(wrap.dataset.state==='down') return;
+      wrap.dataset.anim='1';
+      target.style.animation='';
+      const dur=Math.max(0.4,(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fall-duration'))||1.0)*0.5);
+      target.style.transition=`transform ${dur}s cubic-bezier(.4,.2,.2,1)`;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>target.style.transform=`rotateX(var(--down-angle))`));
+      const onEnd=function(ev){ if(ev.propertyName!=='transform') return;
+        target.removeEventListener('transitionend',onEnd);
+        target.style.transition='';
+        wrap.dataset.state='down';
+        wrap.dataset.anim='0';
+        if(lastRaisedIndex===index){ lastRaisedIndex=null; updateStatus(); }
+        log(`servo ${index} couché (simple)`);
+      };
+      target.addEventListener('transitionend',onEnd);
+    }
+
+    if (!isCenter) {
+      // LOGIQUE POUR CIBLES PÉRIPHÉRIQUES (2 à 13): SCORING PAR DISTANCE
+      wrap.addEventListener('click',(ev)=>{
+        if(wrap.dataset.anim === '1') return;
+        
+        // Clic pour lever la cible si elle est couchée
+        if(wrap.dataset.state==='down') { rise(); return; } 
+        
+        // Si elle est levée, on calcule le score:
+        const rect=target.getBoundingClientRect();
+        const cx=rect.left+rect.width/2;
+        const cy=rect.top+rect.height/2;
+        const dx=ev.clientX-cx;
+        const dy=ev.clientY-cy;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+
+        const rings=peripheralRings;
+        let score=0;
+
+        for(let i=0;i<rings.length-1;i++){
+          if(dist>=rings[i] && dist<rings[i+1]){
+             score = rings[i+1]; 
+             break;
+          }
+        }
+
+        log(`Cible ${index} cliquée → score: ${score}`);
+        lastRaisedIndex=index;
+        updateStatus();
+
+        // Si on clique sur le numéro d'une cible levée, elle tombe SANS ENVOYER DE SCORE
+        if (ev.target.classList.contains('label')) {
+             log(`Cible ${index} / Numéro cliqué → Descente Manuelle (sans score envoyé)`);
+             fallSimple();
+             return;
+        }
+
+        if(ws && ws.readyState===1){
+          ws.send(JSON.stringify({servoIndex:index-1, score}));
+          log(`TX: {"servoIndex":${index-1}, "score":${score}}`);
+        }
+        if (score === 0) {
+            fallSimple(); 
+        }
+      });
+    } else {
+      // LOGIQUE POUR CIBLE CENTRALE (1): SCORING PAR POINT CLIQUE
+
+      // 1. GESTION DU CLIC SUR LE WRAP (MONTEE OU DESCENTE PAR NUMÉRO)
+      wrap.addEventListener('click', (ev) => {
+        if(wrap.dataset.anim === '1') return;
+
+        if(wrap.dataset.state === 'down') {
+          // Si la cible est couchée, on la lève, quel que soit l'élément cliqué
+          rise(); 
+          return;
+        }
+
+        // Si la cible est levée:
+        // Vérifie si le clic est sur le numéro (.label)
+        if (ev.target.classList.contains('label')) {
+            // CORRECTION: ON N'ENVOIE AUCUN SCORE
+            log(`Cible ${index} / Numéro cliqué → Descente Manuelle (sans score envoyé)`);
+            fallSimple();
+            return;
+        }
+        
+        // Si le clic n'est ni sur un dot ni sur le numéro, il sera géré par la logique du 'target' (zone noire)
+      });
+
+
+      // 2. GESTION DES CLICS SUR LES POINTS (SCORING)
+      const dots = target.querySelectorAll('[data-score]');
+      
+      dots.forEach(dot => {
+        dot.addEventListener('click', (ev) => {
+          ev.stopPropagation(); // Empêche le clic de remonter
+          
+          if(wrap.dataset.anim === '1' || wrap.dataset.state === 'down') return;
+          
+          // La cible est levée et on a cliqué sur un point:
+          const score = Number(dot.dataset.score);
+          
+          log(`Cible ${index} / Point ${dot.className} cliqué → score: ${score}`);
+          lastRaisedIndex=index;
+          updateStatus();
+          
+          if(ws && ws.readyState===1){
+            ws.send(JSON.stringify({servoIndex:index-1, score}));
+            log(`TX: {"servoIndex":${index-1}, "score":${score}}`);
+          }
+        });
+      });
+      
+      // 3. GESTION DU MISS SUR LA ZONE NOIRE (SCORE 0)
+      target.addEventListener('click', (ev) => {
+        // Le clic a atteint la zone noire et la cible est déjà levée
+        if (wrap.dataset.state === 'up') {
+          log(`Cible ${index} / Zone Noire cliquée → score: 0`);
+          
+          if(ws && ws.readyState===1){
+            ws.send(JSON.stringify({servoIndex:index-1, score: 0}));
+            log(`TX: {"servoIndex":${index-1}, "score":0}`);
+          }
+          fallSimple();
+        }
+      });
+    }
+
+    servoMap[String(index)]={wrap,target,index,rise,fallSimple};
+  }
+
+  setAllTargetSizes();
+  buildPeripheralTargets();
+
+  const centerWrap = document.getElementById('wrap-1');
+  if(centerWrap){
+    const centerTarget = centerWrap.querySelector('.target');
+    registerInteractive(centerWrap,centerTarget,1);
+  }
+
+  window.addEventListener('resize',()=>{ setTimeout(()=>{ setAllTargetSizes(); buildPeripheralTargets(); },80); });
+
+  function updateStatus(){ setWsStatusText(ws && ws.readyState===1?'connected':'disconnected'); }
+
+  // ------------------------------------------------------------------
+  // Écouteur de clic global sur la zone de jeu (board) pour le "Miss Global" (Zone 0)
+  // ------------------------------------------------------------------
+  const board = document.getElementById('board');
+
+  board.addEventListener('click', (ev) => {
+    // 1. Vérifier si une cible est levée
+    if (lastRaisedIndex === null || !servoMap[String(lastRaisedIndex)]) {
+      return; 
+    }
+
+    const currentTargetWrap = servoMap[String(lastRaisedIndex)].wrap;
+    
+    // 2. Si le clic est sur l'élément levé, on laisse la logique interne gérer.
+    if (currentTargetWrap.contains(ev.target)) {
+        return; 
+    }
+
+    // 3. Le clic est en dehors de la cible levée (Miss Global / Zone 0)
+    log(`Miss Global détecté (clic en dehors de la cible ${lastRaisedIndex}) → score: 0`);
+    
+    const index = lastRaisedIndex;
+    
+    // Envoyer le score 0 pour la cible levée à l'ESP32
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ servoIndex: index - 1, score: 0 }));
+      log(`TX (Miss Global): {"servoIndex":${index - 1}, "score":0}`);
+    }
+
+    // Abaisser la cible immédiatement
+    servoMap[String(index)].fallSimple(); 
+  });
+  // ------------------------------------------------------------------
+
+
+  // ---------- WebSocket ----------
+  let ws=null;
+  let reconnectTimer=null;
+
+  function connectWS(url){
+    if(ws){ try{ ws.close(); }catch(e){} ws=null; }
+    try{ ws=new WebSocket(url); } catch(e){ log('Erreur WS: '+e); setWsStatusText('error'); return; }
+    setWsStatusText('connecting');
+    ws.onopen=()=>{ setWsStatusText('connected'); log('WS ouvert: '+url); };
+    ws.onmessage=(ev)=>{
+      if(typeof ev.data==='string'){ log('RX: '+ev.data); handleArduinoRaw(ev.data); }
+      else if(ev.data instanceof Blob){ ev.data.text().then(t=>{ log('RX(blob): '+t); handleArduinoRaw(t); }).catch(()=>{}); }
+      else { const s=String(ev.data); log('RX: '+s); handleArduinoRaw(s); }
+    };
+    ws.onerror=(e)=>{ log('WS error'); setWsStatusText('error'); };
+    ws.onclose=()=>{ setWsStatusText('closed'); log('WS closed'); if(reconnectTimer) clearTimeout(reconnectTimer); reconnectTimer=setTimeout(()=>connectWS(wsUrlInput.value||wsUrlInput.defaultValue),2500); };
+  }
+
+  connectBtn.addEventListener('click',()=>{
+    const url=(wsUrlInput.value||wsUrlInput.defaultValue).trim();
+    if(!url) return alert('Renseigne l\'URL WebSocket');
+    connectWS(url);
+  });
+
+  disconnectBtn.addEventListener('click',()=>{
+    if(ws){ try{ ws.close(); }catch(e){} ws=null; setWsStatusText('manual closed'); log('WS fermé manuellement'); }
+  });
+
+  connectWS(wsUrlInput.value||wsUrlInput.defaultValue);
+
+  sendManualBtn.addEventListener('click',()=>{
+    const txt=document.getElementById('manualJson').value.trim();
+    if(!txt) return alert('Entre un JSON de test');
+    log('MANUAL -> '+txt);
+    handleArduinoRaw(txt);
+     if (ws && ws.readyState === 1) {
+        ws.send(txt);
+        log('TX (Manuel) : ' + txt);
+    }
+  });
+
+  sendEndBtn.addEventListener('click',()=>{
+    const obj={type:'game_status', message:'END_MANCHE'};
+    const txt = JSON.stringify(obj);
+    log('MANUAL -> '+txt);
+    handleArduinoRaw(obj);
+    if (ws && ws.readyState === 1) {
+        ws.send(txt);
+        log('TX (END_MANCHE) : ' + txt);
+    }
+  });
+
+  function tryParseJSONFromString(s){
+    if(!s||typeof s!=='string') return null;
+    const m=s.match(/\{[\s\S]*\}/);
+    if(!m) return null;
+    try{return JSON.parse(m[0]);}catch(e){return null;}
+  }
+
+  function handleArduinoRaw(raw){
+    let obj=null;
+    if(typeof raw==='string') obj=tryParseJSONFromString(raw);
+    else if(typeof raw==='object' && raw!==null) obj=raw;
+    if(!obj){ log('Message ignoré (pas de JSON)'); return; }
+
+    const type=String(obj.type||'').toLowerCase();
+
+    if(type==='servo_up'){
+      let idx=Number(obj.servoIndex ?? obj.index ?? obj.servo ?? obj.id);
+      if(Number.isNaN(idx)) return;
+      idx=idx+1;
+      if(servoMap[String(idx)]) servoMap[String(idx)].rise();
+      else log('servo_up index hors limite: '+idx);
+      return;
+    }
+
+    if(type==='servo_down'){
+      let idx=Number(obj.servoIndex ?? obj.index ?? obj.servo ?? obj.id);
+      if(Number.isNaN(idx)) return;
+      idx=idx+1;
+      if(servoMap[String(idx)]) servoMap[String(idx)].fallSimple();
+      else log('servo_down index hors limite: '+idx);
+      return;
+    }
+
+    if(type==='game_status'){
+      const msg=String(obj.message||'').toUpperCase();
+      if(msg==='COUNTDOWN' && Number(obj.value)===0){
+        if(lastRaisedIndex!==null && servoMap[String(lastRaisedIndex)]) servoMap[String(lastRaisedIndex)].fallSimple();
+        else log('COUNTDOWN reçu mais aucune cible levée');
+        return;
+      }
+      if(msg==='END_MANCHE'){
+        Object.keys(servoMap).forEach(k=>{ try{ servoMap[k].fallSimple(); }catch(e){} });
+        lastRaisedIndex=null;
+        updateStatus();
+        log('END_MANCHE reçu -> toutes les cibles baissées');
+        return;
+      }
+    }
+
+    log('JSON non géré: '+JSON.stringify(obj));
+  }
+
+  window.handleArduinoRaw = handleArduinoRaw;
+  window._servoMap = servoMap;
+
+  log('Interface prête.');
+
+  setInterval(()=>{ setWsStatusText(ws && ws.readyState===1?'connected':'disconnected'); },800);
+
+});
+</script>
+</body>
+</html>
