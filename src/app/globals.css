@@ -1,13 +1,11 @@
-/* Import TailwindCSS v4 */
 @import "tailwindcss";
 
-/* 🎨 Thème clair par défaut */
+/* 🎨 Thèmes clair / sombre de base */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-/* 🌓 Thème sombre automatique */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -15,59 +13,74 @@
   }
 }
 
-/* ⚙️ Définition des variables de thème inline */
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-/* 🌍 Styles globaux */
+/* ✨ Style global */
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; /* ✅ empêche le scroll — plein écran total */
+  width: 100%;
+  overflow: hidden;
   background-color: black;
   color: var(--foreground);
-  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
-  touch-action: manipulation; /* évite les scrolls involontaires sur mobile */
+  font-family: Arial, Helvetica, sans-serif;
+  touch-action: manipulation;
 }
 
-/* 🎮 Canvas 3D plein écran et tactile */
+/* 🌌 Canvas plein écran avec zoom tactile */
 canvas {
   width: 100%;
   height: 100%;
   display: block;
-  touch-action: pinch-zoom; /* ✅ autorise le zoom à 2 doigts */
-  position: fixed;
-  top: 0;
-  left: 0;
+  touch-action: pinch-zoom;
 }
 
-/* ✨ Boutons style “jeu vidéo” */
-button {
-  background: linear-gradient(90deg, #0f0f0f, #1a1a1a);
-  color: #00ffff;
-  border: 2px solid #00ffff;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  transition: all 0.25s ease;
+/* 🧠 Désactivation de la sélection pour un effet “jeu vidéo” */
+* {
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
-button:hover {
-  background: #00ffff;
-  color: #0f0f0f;
+/* ⚡ Animation d’entrée (apparition fluide) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body {
+  background: var(--background);
+  animation: fadeIn 1.2s ease-out both;
+}
+
+/* 💎 Boutons “gaming” stylés */
+.button {
+  background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 0.75rem;
+  border: 2px solid #222;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.25);
+  transition: all 0.2s ease-in-out;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.button:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 15px #00ffff80;
+  box-shadow: 0 0 25px rgba(0, 255, 255, 0.5);
 }
 
-button:active {
-  transform: scale(0.98);
-  box-shadow: 0 0 5px #00ffffaa;
+/* 📱 Responsive extrême pour écrans tactiles */
+@media (max-width: 768px) {
+  .button {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+  }
 }
