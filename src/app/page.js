@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
@@ -48,7 +50,7 @@ export default function Home() {
         <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.3} />
       </Canvas>
 
-      {/* Couche de texte par-dessus le 3D */}
+      {/* Interface */}
       <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6 bg-black/40 backdrop-blur-sm">
         <motion.h1
           initial={{ opacity: 0, y: -40 }}
