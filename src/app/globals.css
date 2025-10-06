@@ -1,17 +1,13 @@
+/* Import TailwindCSS v4 */
 @import "tailwindcss";
 
+/* 🎨 Thème clair par défaut */
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* 🌓 Thème sombre automatique */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -19,23 +15,59 @@
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ⚙️ Définition des variables de thème inline */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
-html, body {
+/* 🌍 Styles globaux */
+html,
+body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: hidden; /* ✅ empêche le scroll — plein écran total */
   background-color: black;
-  touch-action: manipulation;
+  color: var(--foreground);
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+  touch-action: manipulation; /* évite les scrolls involontaires sur mobile */
 }
 
+/* 🎮 Canvas 3D plein écran et tactile */
 canvas {
   width: 100%;
   height: 100%;
-  touch-action: pinch-zoom;
+  display: block;
+  touch-action: pinch-zoom; /* ✅ autorise le zoom à 2 doigts */
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* ✨ Boutons style “jeu vidéo” */
+button {
+  background: linear-gradient(90deg, #0f0f0f, #1a1a1a);
+  color: #00ffff;
+  border: 2px solid #00ffff;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.25s ease;
+}
+
+button:hover {
+  background: #00ffff;
+  color: #0f0f0f;
+  transform: scale(1.05);
+  box-shadow: 0 0 15px #00ffff80;
+}
+
+button:active {
+  transform: scale(0.98);
+  box-shadow: 0 0 5px #00ffffaa;
 }
