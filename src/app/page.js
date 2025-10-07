@@ -82,15 +82,15 @@ export default function Home() {
             Commencer
           </motion.button>
 
-          {/* Bouton Infos */}
-          <motion.button
+        <motion.button
+            onClick={() => window.location.href = "/infos"}
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => (window.location.href = "/infos")}
             className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
-          >
-            Infos
-          </motion.button>
+           >
+
+           Infos
+         </motion.button>
         </div>
       </div>
     </div>
