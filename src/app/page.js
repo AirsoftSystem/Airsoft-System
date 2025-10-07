@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation"; // ← Ajout pour Next.js
+import { useRouter } from "next/navigation";
 
 function RotatingSphere() {
   const meshRef = useRef();
 
   useFrame((_, delta) => {
-    meshRef.current.rotation.y += delta * 0.3;
+    if (meshRef.current) {
+      meshRef.current.rotation.y += delta * 0.3;
+    }
   });
 
   return (
@@ -27,26 +29,13 @@ function RotatingSphere() {
 }
 
 export default function Home() {
-  const router = useRouter(); // ← Ajout pour navigation
-
-  useEffect(() => {
-    const goFullScreen = async () => {
-      if (document.documentElement.requestFullscreen) {
-        try {
-          await document.documentElement.requestFullscreen();
-        } catch (err) {
-          console.log("Impossible d’activer le plein écran :", err);
-        }
-      }
-    };
-    goFullScreen();
-  }, []);
+  const router = useRouter();
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden text-white">
+    <div className="relative w-screen h-screen overflow-hidden text-white bg-black">
       {/* Scène 3D */}
       <Canvas
-        className="absolute inset-0 w-full h-full z-0" // ← Ajout du z-index
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}
         camera={{ position: [0, 0, 4] }}
       >
         <ambientLight intensity={0.5} />
@@ -57,7 +46,8 @@ export default function Home() {
       </Canvas>
 
       {/* Interface */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center px-6 bg-black/40 backdrop-blur-sm">
+      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center px-6"
+        style={{ background: "rgba(0,0,0,0.40)", backdropFilter: "blur(4px)" }}>
         <motion.h1
           initial={{ opacity: 0, y: -40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -66,7 +56,6 @@ export default function Home() {
         >
           Bienvenue dans ton univers 3D
         </motion.h1>
-
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -75,9 +64,7 @@ export default function Home() {
         >
           Explore, clique, et ressens la profondeur du monde 🌌
         </motion.p>
-
         <div className="flex gap-6 flex-wrap justify-center">
-          {/* Bouton Commencer */}
           <motion.button
             whileHover={{ scale: 1.1, backgroundColor: "#22c55e" }}
             whileTap={{ scale: 0.95 }}
@@ -85,10 +72,8 @@ export default function Home() {
           >
             Commencer
           </motion.button>
-
-          {/* Bouton Infos */}
           <motion.button
-            onClick={() => router.push("/infos")} // ← Correction navigation
+            onClick={() => router.push("/infos")}
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
             className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
