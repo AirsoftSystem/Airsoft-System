@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
+import { TextureLoader } from "three";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
-function RotatingSphere() {
+function EarthSphere() {
   const meshRef = useRef();
+  const earthTexture = useLoader(TextureLoader, "https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg");
 
   useFrame((_, delta) => {
     if (meshRef.current) {
@@ -18,12 +20,7 @@ function RotatingSphere() {
   return (
     <mesh ref={meshRef} scale={1.8}>
       <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial
-        color="#22c55e"
-        emissive="#00ffcc"
-        emissiveIntensity={0.4}
-        wireframe
-      />
+      <meshStandardMaterial map={earthTexture} />
     </mesh>
   );
 }
@@ -33,7 +30,6 @@ export default function Home() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden text-white bg-black">
-      {/* Scène 3D */}
       <Canvas
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}
         camera={{ position: [0, 0, 4] }}
@@ -41,12 +37,11 @@ export default function Home() {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <Stars radius={100} depth={50} count={5000} factor={4} fade />
-        <RotatingSphere />
+        <EarthSphere />
         <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.3} />
       </Canvas>
 
-      {/* Interface */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center px-6"
+      <div className="absolute inset-0 z-10 flex flex-col justify-start items-start text-left px-6 pt-10"
         style={{ background: "rgba(0,0,0,0.40)", backdropFilter: "blur(4px)" }}>
         <motion.h1
           initial={{ opacity: 0, y: -40 }}
@@ -64,11 +59,11 @@ export default function Home() {
         >
           Explore, clique, et ressens la profondeur du monde 🌌
         </motion.p>
-        <div className="flex gap-6 flex-wrap justify-center">
+        <div className="flex gap-2 flex-wrap justify-start">
           <motion.button
             whileHover={{ scale: 1.1, backgroundColor: "#22c55e" }}
             whileTap={{ scale: 0.95 }}
-            className="px-8 py-3 rounded-2xl bg-green-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
+            className="px-4 py-2 rounded bg-green-600 text-white font-semibold shadow hover:shadow-lg transition-all"
           >
             Commencer
           </motion.button>
@@ -76,7 +71,7 @@ export default function Home() {
             onClick={() => router.push("/infos")}
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
-            className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
+            className="px-4 py-2 rounded bg-blue-600 text-white font-semibold shadow hover:shadow-lg transition-all"
           >
             Infos
           </motion.button>
