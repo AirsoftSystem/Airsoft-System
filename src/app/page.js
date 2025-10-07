@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation"; // ✅ Import du router
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import { motion } from "framer-motion";
 
 function RotatingSphere() {
   const meshRef = useRef();
-  useFrame((state, delta) => {
+
+  useFrame((_, delta) => {
     meshRef.current.rotation.y += delta * 0.3;
   });
 
@@ -26,8 +26,6 @@ function RotatingSphere() {
 }
 
 export default function Home() {
-  const router = useRouter(); // ✅ Initialisation du router
-
   useEffect(() => {
     const goFullScreen = async () => {
       if (document.documentElement.requestFullscreen) {
@@ -82,15 +80,15 @@ export default function Home() {
             Commencer
           </motion.button>
 
-        <motion.button
-            onClick={() => window.location.href = "/infos"}
+          {/* Bouton Infos */}
+          <motion.button
+            onClick={() => (window.location.href = "/infos")}
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
             className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
-           >
-
-           Infos
-         </motion.button>
+          >
+            Infos
+          </motion.button>
         </div>
       </div>
     </div>
