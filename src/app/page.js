@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation"; // ← Ajout pour Next.js
 
 function RotatingSphere() {
   const meshRef = useRef();
@@ -26,6 +27,8 @@ function RotatingSphere() {
 }
 
 export default function Home() {
+  const router = useRouter(); // ← Ajout pour navigation
+
   useEffect(() => {
     const goFullScreen = async () => {
       if (document.documentElement.requestFullscreen) {
@@ -42,7 +45,10 @@ export default function Home() {
   return (
     <div className="relative w-screen h-screen overflow-hidden text-white">
       {/* Scène 3D */}
-      <Canvas camera={{ position: [0, 0, 4] }}>
+      <Canvas
+        className="absolute inset-0 w-full h-full z-0" // ← Ajout du z-index
+        camera={{ position: [0, 0, 4] }}
+      >
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <Stars radius={100} depth={50} count={5000} factor={4} fade />
@@ -51,7 +57,7 @@ export default function Home() {
       </Canvas>
 
       {/* Interface */}
-      <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6 bg-black/40 backdrop-blur-sm">
+      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center px-6 bg-black/40 backdrop-blur-sm">
         <motion.h1
           initial={{ opacity: 0, y: -40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -82,7 +88,7 @@ export default function Home() {
 
           {/* Bouton Infos */}
           <motion.button
-            onClick={() => (href = "/infos")}
+            onClick={() => router.push("/infos")} // ← Correction navigation
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
             className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
