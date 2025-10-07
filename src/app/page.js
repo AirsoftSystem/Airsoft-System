@@ -82,7 +82,7 @@ export default function Home() {
 
           {/* Bouton Infos */}
           <motion.button
-            onClick={() => (window.location.href = "/infos")}
+            onClick={() => (href = "/infos")}
             whileHover={{ scale: 1.1, backgroundColor: "#3b82f6" }}
             whileTap={{ scale: 0.95 }}
             className="px-8 py-3 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg hover:shadow-2xl transition-all"
